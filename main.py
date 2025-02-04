@@ -1,6 +1,3 @@
-# Install required libraries
-!pip install wikipedia sumy transformers nltk
-
 # Import required libraries
 import wikipedia
 from sumy.parsers.plaintext import PlaintextParser
