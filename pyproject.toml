@@ -31,3 +31,8 @@ packages = ["wikisum"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 filterwarnings = ["ignore::DeprecationWarning"]
+# Import wikisum from the repo root without installing it. `python -m pytest`
+# gets this free via cwd on sys.path, but CI runs bare `pytest`, which does
+# not -- and `pip install -e .` would drag torch into a run that never loads a
+# model.
+pythonpath = ["."]
