@@ -5,6 +5,7 @@ __pycache__/
 
 # C extensions
 *.so
+.claude
 
 # Distribution / packaging
 .Python
@@ -169,3 +170,9 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# Browser test tooling (Playwright is a dev-only dependency)
+node_modules/
+package.json
+package-lock.json
+tests/screenshots/
