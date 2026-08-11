@@ -68,7 +68,7 @@ export async function fetchArticle(title) {
 }
 
 /* Lead section = the human-written summary of the article. Body = the rest,
- * minus link-list sections. Mirrors src/wikisum/fetch.py exactly. */
+ * minus link-list sections. */
 function splitArticle(text, title, url) {
   HEADING.lastIndex = 0;
   const first = HEADING.exec(text);
