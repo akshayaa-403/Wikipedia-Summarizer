@@ -13,12 +13,7 @@ import sys
 from wikisum.chunking import chunk_by_tokens, coverage
 from wikisum.evaluate import rouge_scores
 from wikisum.fetch import ArticleNotFound, fetch_article
-from wikisum.summarizers import (
-    METHOD_LABELS,
-    SUMMARIZERS,
-    TARGET_WORDS,
-    get_summarizer,
-)
+from wikisum.summarizers import METHODS, TARGET_WORDS
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -29,7 +24,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--method",
         action="append",
-        choices=sorted(SUMMARIZERS),
+        choices=sorted(METHODS),
         help="repeatable; defaults to every method",
     )
     parser.add_argument(
@@ -60,7 +55,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 2
 
-    methods = args.method or list(SUMMARIZERS)
+    methods = args.method or list(METHODS)
     chunks = chunk_by_tokens(article.body)
 
     print(f"\n{article.title}")
@@ -72,9 +67,9 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     for method in methods:
-        summary = get_summarizer(method)(article.body, target_words=args.words)
+        summary = METHODS[method].fn(article.body, target_words=args.words)
         print(f"\n{'=' * 68}")
-        header = METHOD_LABELS[method]
+        header = METHODS[method].label
         if summary.chunks_processed > 1:
             header += (
                 f"  [{summary.chunks_processed} chunks, {summary.passes} passes]"

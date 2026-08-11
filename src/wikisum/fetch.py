@@ -53,7 +53,6 @@ class Article:
     body: str
     full: str
     sections: list[str] = field(default_factory=list)
-    section_leads: str = ""
 
     @property
     def word_count(self) -> int:
@@ -94,52 +93,6 @@ def _strip_boilerplate(text: str) -> str:
         kept.append(f"{title}\n{content}")
 
     return "\n\n".join(kept)
-
-
-def _section_leads(body: str, max_words: int = 400) -> str:
-    """A reference sampled from the whole article, not just its opening.
-
-    Scoring against the lead section quietly favours any method that reads only
-    the article's opening -- which is exactly what the truncation baseline does,
-    so the metric rewards the handicap it is supposed to expose. This builds the
-    control: the first sentence of each section, which Wikipedia convention
-    makes a topic sentence, spread across the entire document by construction.
-
-    Capped at ``max_words`` so it stays the same order of length as the lead;
-    an unbounded reference would move recall for every method at once.
-    """
-    from wikisum.chunking import sentence_split
-
-    # One topic sentence per section, in document order.
-    candidates: list[str] = []
-    for block in body.split("\n\n"):
-        block = block.strip()
-        if not block:
-            continue
-        # _strip_boilerplate emits "Title\nprose"; take the prose. Splitting on
-        # the newline is required -- by the time _clean has run the newline is
-        # gone and the title fuses onto the first sentence ("Overview In plants,
-        # algae, ...").
-        _, _, prose = block.partition("\n")
-        sentences = sentence_split(prose.strip())
-        if sentences and len(sentences[0].split()) >= 6:
-            candidates.append(sentences[0])
-
-    if not candidates:
-        return ""
-
-    # Subsample evenly rather than filling from the front. Taking sections in
-    # order until the budget runs out would draw the whole reference from the
-    # article's opening -- reintroducing exactly the positional bias this
-    # reference exists to remove (Roman Empire covered only 10-19% of the body).
-    keep = len(candidates)
-    while keep > 1 and len(" ".join(candidates[:keep]).split()) > max_words:
-        keep -= 1
-    if keep < len(candidates):
-        step = len(candidates) / keep
-        candidates = [candidates[int(i * step)] for i in range(keep)]
-
-    return " ".join(candidates)
 
 
 def _clean(text: str) -> str:
@@ -215,5 +168,4 @@ def fetch_article(title: str) -> Article:
         body=body,
         full=_clean(_strip_boilerplate(content)),
         sections=[m.group(1) for m in _HEADING.finditer(content)],
-        section_leads=_section_leads(_strip_boilerplate(rest)),
     )

@@ -20,47 +20,18 @@ Two ideas do the work:
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 
-_ABBREVIATIONS = {
-    "mr", "mrs", "ms", "dr", "prof", "sr", "jr", "st", "vs", "etc", "e.g",
-    "i.e", "cf", "al", "inc", "ltd", "co", "corp", "no", "vol", "fig",
-    "approx", "ca", "c", "ad", "bc", "u.s", "u.k",
-}
-
-_SENTENCE_END = re.compile(r"(?<=[.!?])[\"')\]]*\s+")
-
-
 def sentence_split(text: str) -> list[str]:
-    """Split text into sentences.
+    """Split text into sentences with NLTK's Punkt tokenizer.
 
-    Uses NLTK's Punkt tokenizer when available and falls back to a regex that
-    knows about common abbreviations. The fallback keeps the package importable
-    (and the tests runnable) on a machine where the NLTK corpora were never
-    downloaded.
+    Raises NLTK's own ``LookupError`` if the punkt corpus was never downloaded;
+    its message names the exact ``nltk.download`` call to run, which beats
+    silently substituting a worse splitter and reporting scores from it.
     """
-    try:
-        import nltk
+    import nltk
 
-        return [s.strip() for s in nltk.sent_tokenize(text) if s.strip()]
-    except Exception:
-        pass
-
-    sentences: list[str] = []
-    buffer = ""
-    for piece in _SENTENCE_END.split(text):
-        buffer = f"{buffer} {piece}".strip() if buffer else piece
-        # A trailing token like "Dr." means the split was spurious; keep going.
-        last_word = buffer.rsplit(" ", 1)[-1].rstrip(".!?\"')]").lower()
-        if last_word in _ABBREVIATIONS:
-            continue
-        if buffer:
-            sentences.append(buffer.strip())
-            buffer = ""
-    if buffer.strip():
-        sentences.append(buffer.strip())
-    return sentences
+    return [s.strip() for s in nltk.sent_tokenize(text) if s.strip()]
 
 
 @dataclass

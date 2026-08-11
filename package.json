@@ -1,0 +1,13 @@
+{
+  "name": "wikipedia-summarizer",
+  "version": "1.0.0",
+  "private": true,
+  "license": "MIT",
+  "description": "Playwright, for the browser test suite only. The site itself has no build step and no dependencies.",
+  "scripts": {
+    "test": "node tests/e2e/browser_check.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.62.1"
+  }
+}

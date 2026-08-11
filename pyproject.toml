@@ -16,7 +16,6 @@ dependencies = [
     "transformers>=4.40",
     "torch>=2.0",
     "rouge-score>=0.1.2",
-    "numpy>=1.24",
 ]
 
 [project.optional-dependencies]
@@ -25,14 +24,13 @@ dev = ["pytest>=7.4"]
 [project.scripts]
 wikisum = "wikisum.cli:main"
 
-[tool.setuptools]
-packages = ["wikisum"]
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 filterwarnings = ["ignore::DeprecationWarning"]
-# Import wikisum from the repo root without installing it. `python -m pytest`
-# gets this free via cwd on sys.path, but CI runs bare `pytest`, which does
-# not -- and `pip install -e .` would drag torch into a run that never loads a
-# model.
-pythonpath = ["."]
+# Import wikisum from src/ without installing it. src-layout keeps the repo
+# root off sys.path, so this is required for both `pytest` and `python -m pytest`
+# -- and `pip install -e .` would drag torch into a run that never loads a model.
+pythonpath = ["src"]

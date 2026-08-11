@@ -1,6 +1,6 @@
 """Tests for ROUGE scoring and the lead/body split."""
 
-from wikisum.evaluate import aggregate, rouge_scores
+from wikisum.evaluate import ROUGE_TYPES, aggregate, rouge_scores
 from wikisum.fetch import _clean, _strip_boilerplate
 
 
@@ -45,11 +45,10 @@ class TestAggregate:
         assert result["rouge1"]["mean"] == 0.0
 
     def test_mean_and_stdev(self):
-        class R:
-            def __init__(self, v):
-                self.rouge1 = self.rouge2 = self.rougeL = v
+        scored = [rouge_scores("alpha beta", "alpha gamma").as_dict()] * 2
+        assert aggregate(scored)["rouge1"]["stdev"] == 0.0
 
-        result = aggregate([R(0.2), R(0.4)])
+        result = aggregate([{k: v for k in ROUGE_TYPES} for v in (0.2, 0.4)])
         assert result["rouge1"]["mean"] == 0.3
         assert result["rouge1"]["stdev"] > 0
 

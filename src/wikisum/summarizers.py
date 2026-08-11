@@ -10,7 +10,10 @@ from __future__ import annotations
 
 import functools
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
+from functools import partial
+from typing import NamedTuple
 
 from wikisum.chunking import chunk_by_tokens, coverage
 
@@ -92,22 +95,14 @@ def _sumy_summary(text: str, algorithm: str, target_words: int) -> tuple[str, in
     return " ".join(chosen), len(chosen)
 
 
-def summarize_lexrank(text: str, *, target_words: int = TARGET_WORDS, **_) -> Summary:
-    """Graph-based extraction: rank sentences by eigenvector centrality."""
-    summary, sentences = _sumy_summary(text, "lexrank", target_words)
+def _extractive(
+    algorithm: str, text: str, *, target_words: int = TARGET_WORDS, **_
+) -> Summary:
+    """``lexrank`` ranks by eigenvector centrality, ``lsa`` by SVD over the
+    term-sentence matrix. Everything downstream of the ranking is identical."""
+    summary, sentences = _sumy_summary(text, algorithm, target_words)
     return Summary(
-        method="lexrank",
-        text=summary,
-        input_coverage=1.0,
-        meta={"sentences": sentences, "target_words": target_words},
-    )
-
-
-def summarize_lsa(text: str, *, target_words: int = TARGET_WORDS, **_) -> Summary:
-    """Extraction via SVD over the term-sentence matrix."""
-    summary, sentences = _sumy_summary(text, "lsa", target_words)
-    return Summary(
-        method="lsa",
+        method=algorithm,
         text=summary,
         input_coverage=1.0,
         meta={"sentences": sentences, "target_words": target_words},
@@ -278,32 +273,19 @@ def summarize_bart_mapreduce(
     )
 
 
-SUMMARIZERS = {
-    "lexrank": summarize_lexrank,
-    "lsa": summarize_lsa,
-    "bart_truncated": summarize_bart_truncated,
-    "bart_mapreduce": summarize_bart_mapreduce,
+class Method(NamedTuple):
+    fn: Callable[..., Summary]
+    label: str
+    kind: str
+
+
+METHODS = {
+    "lexrank": Method(partial(_extractive, "lexrank"), "LexRank", "extractive"),
+    "lsa": Method(partial(_extractive, "lsa"), "LSA", "extractive"),
+    "bart_truncated": Method(
+        summarize_bart_truncated, "BART (truncated)", "abstractive"
+    ),
+    "bart_mapreduce": Method(
+        summarize_bart_mapreduce, "BART (map-reduce)", "abstractive"
+    ),
 }
-
-METHOD_LABELS = {
-    "lexrank": "LexRank",
-    "lsa": "LSA",
-    "bart_truncated": "BART (truncated)",
-    "bart_mapreduce": "BART (map-reduce)",
-}
-
-METHOD_KINDS = {
-    "lexrank": "extractive",
-    "lsa": "extractive",
-    "bart_truncated": "abstractive",
-    "bart_mapreduce": "abstractive",
-}
-
-
-def get_summarizer(name: str):
-    try:
-        return SUMMARIZERS[name]
-    except KeyError:
-        raise ValueError(
-            f"unknown method {name!r}; choose from {sorted(SUMMARIZERS)}"
-        ) from None

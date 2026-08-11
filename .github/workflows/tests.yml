@@ -20,4 +20,4 @@ jobs:
       # code that is thin glue over model.generate() is not worth the minutes.
       - run: pip install pytest rouge-score nltk requests
       - run: python -c "import nltk; nltk.download('punkt'); nltk.download('punkt_tab')"
-      - run: pytest tests/ -q
+      - run: pytest tests/ -q   # pythonpath=src in pyproject makes this work uninstalled

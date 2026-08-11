@@ -3,308 +3,140 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Wikipedia Summarizer — condensing long articles, and measuring whether it worked</title>
-<meta name="description" content="A summarization pipeline that reads whole Wikipedia articles instead of the first 1024 tokens, with a ROUGE benchmark comparing LexRank, LSA and two BART strategies.">
+<title>Wikipedia Summarizer — four algorithms, one article, scored live</title>
+<meta name="description" content="Four extractive summarizers run in your browser on any Wikipedia article, scored with ROUGE against the article's own summary.">
 <meta name="color-scheme" content="light dark">
 <meta property="og:title" content="Wikipedia Summarizer">
-<meta property="og:description" content="Chunked map-reduce summarization that reads the whole article, and a ROUGE benchmark showing what that does and doesn't buy.">
+<meta property="og:description" content="Four summarization algorithms, run live on any Wikipedia article and scored against the human-written lead.">
 <meta property="og:type" content="website">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..600;1,6..96,400..500&family=Spectral:ital,wght@0,300;0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600;650&display=swap">
 <link rel="stylesheet" href="css/style.css">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📄</text></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>§</text></svg>">
 </head>
 <body>
 
 <nav class="nav">
   <div class="nav-inner">
-    <a class="nav-brand" href="#top">Wikipedia&nbsp;Summarizer <span>— an evaluation</span></a>
-    <a class="nav-link" href="#demo">Demo</a>
-    <a class="nav-link" href="#problem">The problem</a>
-    <a class="nav-link" href="#results">Results</a>
-    <a class="nav-link" href="#explorer">Explorer</a>
-    <a class="nav-link" href="#reproduce">Reproduce</a>
+    <a class="nav-brand" href="#top">Wikipedia&nbsp;Summarizer</a>
+    <a class="nav-link" href="#summaries-section">Summaries</a>
+    <a class="nav-link" href="#metrics">Metrics</a>
+    <a class="nav-link" href="https://github.com/akshayaa-403/Wikipedia-Summarizer">Code&nbsp;↗</a>
     <button class="icon-btn" id="theme-toggle" type="button" aria-label="Toggle colour theme">◐</button>
   </div>
 </nav>
 
 <main id="top">
 
-<!-- ============================================ hero + live demo -->
 <header class="hero">
   <div class="wrap">
-    <p class="eyebrow">Extractive vs. abstractive summarization · ROUGE evaluation</p>
-    <h1>Most summarizers only read the first page.</h1>
-    <p class="lede">
-      BART accepts <strong>1024 tokens</strong>. The average article body in this
-      benchmark runs <strong id="hero-words">6,700 words</strong>. Hand one to the other
-      and the model silently discards about <strong id="hero-lost">90%</strong> of it,
-      then summarizes the opening paragraphs as though they were the whole thing.
-      This project reads the entire article instead — and then measures, with ROUGE,
-      what that actually buys.
-    </p>
+    <h1>Four algorithms summarize<br>the same article.</h1>
 
-    <div class="demo" id="demo">
-      <form class="demo-row" id="demo-form" role="search">
-        <label class="sr-only" for="q">Wikipedia article title</label>
-        <input id="q" name="q" type="text" placeholder="Try an article title — e.g. Photosynthesis"
-               autocomplete="off" spellcheck="false" value="Photosynthesis">
-        <button class="btn" id="run" type="submit">Summarize</button>
-      </form>
-      <p class="suggests">
-        Or try
-        <button type="button" data-title="Black hole">Black hole</button> ·
-        <button type="button" data-title="Roman Empire">Roman Empire</button> ·
-        <button type="button" data-title="Immune system">Immune system</button> ·
-        <button type="button" data-title="Silk Road">Silk Road</button>
-      </p>
-
-      <div id="live-panel" hidden></div>
-    </div>
+    <form class="demo-row" id="demo-form" role="search">
+      <label class="sr-only" for="q">Wikipedia article title</label>
+      <input id="q" name="q" type="text" placeholder="Any Wikipedia article…"
+             autocomplete="off" spellcheck="false" value="Penguin">
+      <button class="btn" id="run" type="submit">Summarize</button>
+    </form>
+    <p class="suggests" id="suggests"></p>
+    <div id="status"></div>
   </div>
 </header>
 
-<!-- ============================================ the problem -->
-<section id="problem">
+<section id="summaries-section">
   <div class="wrap">
-    <p class="sec-num">01 — The long-context problem</p>
-    <div class="prose">
-      <h2>Truncation discards the article without telling you</h2>
-      <p>
-        The original version of this project did what almost every tutorial does:
-        pass the article to the tokenizer with <code>truncation=True</code> and a
-        1024-token limit. That call never fails and never warns. It just quietly
-        throws away everything past the cut and returns a fluent, well-formed
-        summary of the article's introduction.
-      </p>
-      <p>
-        For <em>Photosynthesis</em> — ~6,600 words in the body — a single window
-        covers roughly a tenth of the text. The light reactions make it in. The
-        Calvin cycle, C4 and CAM pathways, and the entire evolutionary history
-        section do not.
-      </p>
-    </div>
-
-    <div class="trunc-fig">
-      <article class="card">
-        <span class="tag bad">Baseline · truncate</span>
-        <h3>One window, one pass</h3>
-        <div class="chunkmap" id="fig-trunc" aria-hidden="true"></div>
-        <p>
-          The tokenizer keeps the first 1024 tokens and drops the rest. Cost is
-          one model call, and the summary can only ever describe the opening of
-          the article. Nothing in the API signals that this happened.
-        </p>
-      </article>
-
-      <article class="card">
-        <span class="tag good">This project · map-reduce</span>
-        <h3>Every chunk read, then condensed</h3>
-        <div class="chunkmap" id="fig-mr" aria-hidden="true"></div>
-        <p>
-          The body is packed into overlapping windows that break on sentence
-          boundaries. Each is summarized (<em>map</em>), the summaries are
-          concatenated and summarized again (<em>reduce</em>), repeating until
-          the intermediate text fits one window. The final pass sees material
-          from the whole article.
-        </p>
-      </article>
-    </div>
-
-    <div class="prose" style="margin-top:34px">
-      <h3 style="font-family:var(--sans);font-size:1.05rem;margin-bottom:10px">Two details that matter more than they look</h3>
-      <p>
-        <strong>Chunks break on sentence boundaries.</strong> Cutting mid-clause
-        leaves an abstractive model to invent an ending for a severed sentence,
-        which is how hallucinated facts get in.
-      </p>
-      <p>
-        <strong>Chunks overlap by one sentence.</strong> Without the carry, a fact
-        introduced at the end of chunk <em>n</em> and referenced by a pronoun at the
-        start of chunk <em>n+1</em> leaves the second chunk summarizing a dangling
-        "it" with no antecedent. That single-sentence overlap is what actually
-        keeps context across the boundary.
-      </p>
-    </div>
+    <div id="article-head"></div>
+    <div class="cards" id="summaries"></div>
   </div>
 </section>
 
-<!-- ============================================ results -->
-<section id="results">
+<section id="metrics">
   <div class="wrap">
-    <p class="sec-num">02 — Results</p>
-    <div class="prose">
-      <h2>Four methods, measured</h2>
-      <p id="results-intro">
-        Each method summarizes the article <em>body</em>; the score compares that
-        summary against the article's own <em>lead section</em>, which Wikipedia
-        editors write specifically to summarize the rest. ROUGE F-measure with
-        Porter stemming, averaged across the benchmark set.
-      </p>
-    </div>
+    <h2 class="section-title">Metrics</h2>
 
-    <div class="statbar" id="headline-stats"></div>
+    <div class="chart-grid">
 
-    <figure class="figure">
-      <div class="chart-head">
-        <span class="chart-title">Mean ROUGE F-measure by method</span>
-        <div class="toggle-row" id="chart-toggle">
-          <button type="button" data-view="chart" aria-pressed="true">Chart</button>
-          <button type="button" data-view="table" aria-pressed="false">Table</button>
-        </div>
-      </div>
-      <div class="legend" id="rouge-legend"></div>
-      <div class="chart-scroll" id="rouge-chart"></div>
-      <figcaption>
-        Higher is better. ROUGE-1 counts shared unigrams, ROUGE-2 shared bigrams
-        (the strictest of the three, since it is sensitive to word order), and
-        ROUGE-L the longest common subsequence. Hover or focus any bar for the
-        per-method figure.
-      </figcaption>
-    </figure>
-
-
-    <div class="table-scroll" style="margin-top:40px">
-      <table id="results-table">
-        <caption>Full comparison. Best value in each column is emphasised.</caption>
-      </table>
-    </div>
-    <div class="prose" style="margin-top:34px">
-      <h3 style="font-family:var(--sans);font-size:1.05rem;margin-bottom:10px">What the benchmark actually shows</h3>
-      <p>
-        <strong>Map-reduce does not beat truncation on ROUGE.</strong> It reads
-        100% of the body against the baseline's 8.5%, takes 6.5× as long, and
-        lands essentially level — slightly behind on ROUGE-1 and ROUGE-L,
-        slightly ahead on ROUGE-2, winning 4 of 10 articles. Reading twelve
-        times more text bought no measured gain on this metric. That is the
-        result, and inventing a win the numbers don't show would make every
-        other figure on this page worth less.
-      </p>
-      <p>
-        <strong>The metric is part of the reason.</strong> The reference is the
-        article's lead section, and a lead is written to introduce the subject —
-        it is topically closest to the article's <em>opening</em>, which is
-        exactly the region truncation reads. So the reference quietly rewards
-        the baseline for its handicap. A summary that faithfully covers the
-        Calvin cycle, C4 pathways and evolutionary history is <em>penalised</em>
-        for spending words on material the lead never mentions.
-      </p>
-      <p>
-        <strong>LexRank wins outright</strong>, and that is largely ROUGE
-        measuring what ROUGE measures: lexical overlap. An extractive method
-        copies Wikipedia's own sentences, so it reuses the reference's
-        vocabulary by construction, while an abstractive model paraphrases and
-        is marked down for it. ROUGE is a similarity metric, not a correctness
-        metric, and it cannot see whether a summary is true.
-      </p>
-      <p>
-        <strong>What map-reduce does buy is coverage</strong> — the guarantee
-        that no section was silently discarded. Whether that is worth 6.5× the
-        compute depends on whether the task needs the whole article represented
-        or just a fluent opening. This benchmark can size that trade-off; it
-        cannot make the choice.
-      </p>
-    </div>
-  </div>
-</section>
-
-<!-- ============================================ explorer -->
-<section id="explorer">
-  <div class="wrap">
-    <p class="sec-num">03 — Article explorer</p>
-    <div class="prose">
-      <h2>Same article, four summaries</h2>
-      <p>
-        Every summary below was produced by the Python pipeline in this
-        repository and scored against the reference shown first.
-      </p>
-    </div>
-
-    <div class="explorer-bar">
-      <label class="sr-only" for="article-select">Choose a benchmark article</label>
-      <select id="article-select"></select>
-      <span id="article-meta" style="font-size:13.5px;color:var(--muted)"></span>
-    </div>
-
-    <div class="compare" id="compare"></div>
-  </div>
-</section>
-
-<!-- ============================================ methods -->
-<section id="methods">
-  <div class="wrap">
-    <p class="sec-num">04 — Methods</p>
-    <div class="prose">
-      <h2>What each method does</h2>
-    </div>
-    <div class="methods">
-      <article class="mcard">
-        <header><span class="swatch" style="background:var(--series-1)"></span><h3>LexRank</h3></header>
-        <span class="kind">extractive</span>
-        <p>
-          Builds a graph whose nodes are sentences and whose edges are TF-IDF
-          cosine similarity, then ranks by eigenvector centrality. Selects the
-          highest-ranked existing sentences verbatim. No context limit — the
-          whole article is one graph — and no risk of hallucination, but it can
-          only ever reuse sentences the article already contains.
+      <figure class="figure wide">
+        <p class="fig-num">Chart 1</p>
+        <figcaption class="fig-head">
+          <span class="fig-title">ROUGE F-measure against Wikipedia's summary</span>
+        </figcaption>
+        <p class="fig-desc">
+          Three metrics, four methods. The dashed rule is Wikipedia's own opening
+          trimmed to the same word budget — what a human reaches writing to this brief.
         </p>
-      </article>
-      <article class="mcard">
-        <header><span class="swatch" style="background:var(--series-2)"></span><h3>LSA</h3></header>
-        <span class="kind">extractive</span>
-        <p>
-          Applies singular value decomposition to the term–sentence matrix and
-          picks the sentence that best represents each leading latent topic.
-          Tends to produce more topically diverse selections than LexRank, and
-          more erratic ones on articles with a strong single theme.
-        </p>
-      </article>
-      <article class="mcard">
-        <header><span class="swatch" style="background:var(--series-3)"></span><h3>BART, truncated</h3></header>
-        <span class="kind">abstractive · baseline</span>
-        <p>
-          <code>facebook/bart-large-cnn</code> with <code>truncation=True</code>.
-          Generates genuinely new sentences, fluently — but only about the first
-          1024 tokens. Included as the baseline precisely so the cost of
-          truncation can be quantified rather than assumed.
-        </p>
-      </article>
-      <article class="mcard">
-        <header><span class="swatch" style="background:var(--series-4)"></span><h3>BART, map-reduce</h3></header>
-        <span class="kind">abstractive · this project</span>
-        <p>
-          The same model and decoding parameters, applied hierarchically over
-          overlapping sentence-aligned chunks until the condensed text fits a
-          single window. Reads 100% of the body at the cost of one model call
-          per chunk plus the reduce passes.
-        </p>
-      </article>
-    </div>
-  </div>
-</section>
+        <div class="legend" id="rouge-legend"></div>
+        <div class="chart-scroll" id="rouge-chart"></div>
+      </figure>
 
-<!-- ============================================ reproduce -->
-<section id="reproduce">
-  <div class="wrap">
-    <p class="sec-num">05 — Reproduce</p>
-    <div class="prose">
-      <h2>Run it yourself</h2>
-      <p>Everything on this page is generated by the code in the repository.</p>
-    </div>
-    <div class="prose">
-<pre><code><b>pip</b> install -r requirements.txt
-<b>python</b> -c "import nltk; nltk.download('punkt'); nltk.download('punkt_tab')"
+      <figure class="figure">
+        <p class="fig-num">Chart 2</p>
+        <figcaption class="fig-head">
+          <span class="fig-title">Rank stability across metrics</span>
+        </figcaption>
+        <p class="fig-desc">
+          Plotted by rank, not score: values cluster within a thousandth, so ordering
+          is the readable question. Crossing lines mean a metric-dependent win.
+        </p>
+        <div class="chart-scroll" id="slope-chart"></div>
+      </figure>
 
-<i># summarize one article with every method, scored against its lead</i>
-<b>python</b> -m wikisum "Photosynthesis" --evaluate
+      <figure class="figure">
+        <p class="fig-num">Chart 3</p>
+        <figcaption class="fig-head">
+          <span class="fig-title">Coverage against self-repetition</span>
+        </figcaption>
+        <p class="fig-desc">
+          Right is broader coverage of the article's key terms; down is less repetition
+          between the summary's own sentences. MMR is built to reach the lower right.
+        </p>
+        <div class="chart-scroll" id="quadrant-chart"></div>
+      </figure>
 
-<i># regenerate the benchmark this page reads</i>
-<b>python</b> -m wikisum.benchmark --out docs/data/results.json</code></pre>
-      <p style="font-size:14.5px;color:var(--muted)">
-        The benchmark runs BART on CPU; expect a few minutes per article. The
-        live demo above needs none of it — it runs TextRank in your browser
-        against the Wikipedia API directly, because GitHub Pages serves static
-        files and cannot execute Python.
-      </p>
+      <figure class="figure">
+        <p class="fig-num">Chart 4</p>
+        <figcaption class="fig-head">
+          <span class="fig-title">Sentence overlap between methods</span>
+        </figcaption>
+        <p class="fig-desc">
+          Jaccard similarity of the sentence sets each pair selected. 1.00 means
+          identical choices; a dark row means a method is contributing nothing new.
+        </p>
+        <div class="chart-scroll" id="overlap-chart"></div>
+      </figure>
+
+      <figure class="figure">
+        <p class="fig-num">Chart 5</p>
+        <figcaption class="fig-head">
+          <span class="fig-title">Key terms captured</span>
+        </figcaption>
+        <p class="fig-desc">
+          How many of the article's top-20 TF-IDF terms each summary contains — a
+          content signal independent of ROUGE, which only ever compares to the lead.
+        </p>
+        <div class="chart-scroll" id="terms-chart"></div>
+      </figure>
+
+      <figure class="figure wide">
+        <p class="fig-num">Chart 6</p>
+        <figcaption class="fig-head">
+          <span class="fig-title">Where each method looks in the article</span>
+        </figcaption>
+        <p class="fig-desc">
+          Kernel density of each method's selected sentences by position. A curve
+          humped at the left is lead-biased; ticks on the baseline mark the actual
+          sentences chosen.
+        </p>
+        <div class="chart-scroll" id="density-chart"></div>
+      </figure>
+
     </div>
+
+    <div class="table-scroll">
+      <table id="results-table"></table>
+    </div>
+
   </div>
 </section>
 
@@ -312,8 +144,8 @@
 
 <footer>
   <div class="wrap">
-    <span>Built with <code>facebook/bart-large-cnn</code>, sumy, and rouge-score. Article text from Wikipedia, CC BY-SA 4.0.</span>
-    <span id="generated-stamp"></span>
+    <span>TextRank · LSA · Luhn · MMR — computed in your browser.</span>
+    <span>Article text from Wikipedia, CC BY-SA 4.0.</span>
   </div>
 </footer>
 
