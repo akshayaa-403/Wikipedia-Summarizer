@@ -1,4 +1,4 @@
-Wikipedia Summarizer
+# Wikipedia Summarizer
 
 Four summarization algorithms. One article. Scored against the people who wrote it.
 
