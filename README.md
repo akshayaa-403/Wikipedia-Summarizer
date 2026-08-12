@@ -1,86 +1,69 @@
-<h1 align="center">Wikipedia Summarizer</h1>
+Wikipedia Summarizer
 
-<p align="center">
-  <em>Four summarization algorithms. One article. Scored against the humans who wrote it.</em>
-</p>
+Four summarization algorithms. One article. Scored against the people who wrote it.
 
-<p align="center">
-  <a href="https://akshayaa-403.github.io/Wikipedia-Summarizer/"><img src="https://img.shields.io/badge/live%20demo-open-111111?style=flat-square" alt="Live demo"></a>
-  <a href="https://github.com/akshayaa-403/Wikipedia-Summarizer/actions/workflows/tests.yml"><img src="https://img.shields.io/github/actions/workflow/status/akshayaa-403/Wikipedia-Summarizer/tests.yml?style=flat-square&color=111111&label=tests" alt="Tests"></a>
-  <img src="https://img.shields.io/badge/dependencies-0-111111?style=flat-square" alt="Zero runtime dependencies">
-  <img src="https://img.shields.io/badge/backend-none-111111?style=flat-square" alt="No backend">
-  <img src="https://img.shields.io/github/license/akshayaa-403/Wikipedia-Summarizer?style=flat-square&color=111111" alt="MIT license">
-</p>
+[![Live demo](https://img.shields.io/badge/demo-online-22c55e?style=flat-square)](https://akshayaa-403.github.io/Wikipedia-Summarizer/)
+[![Tests](https://img.shields.io/github/actions/workflow/status/akshayaa-403/Wikipedia-Summarizer/tests.yml?style=flat-square&label=tests&color=22c55e)](https://github.com/akshayaa-403/Wikipedia-Summarizer/actions/workflows/tests.yml)
+[![Dependencies](https://img.shields.io/badge/dependencies-0-8b5cf6?style=flat-square)]()
+[![Backend](https://img.shields.io/badge/backend-none-3b82f6?style=flat-square)]()
+[![License](https://img.shields.io/github/license/akshayaa-403/Wikipedia-Summarizer?style=flat-square&color=8b5cf6)](LICENSE)
 
-<p align="center">
-  <strong>4 algorithms &middot; 6 live charts &middot; ~44 ms for a 4,400-word article &middot; runs entirely in your browser</strong>
-</p>
+## Overview
 
----
+Type any Wikipedia article. Four classical summarizers run in your browser, and each one's output is scored with ROUGE against the article's **lead section** — the summary Wikipedia's own editors wrote. You're not just comparing algorithms to each other; you're comparing them to humans.
 
-Type any Wikipedia article. Four classical extractive summarizers run in your
-browser, each scored with ROUGE against the article's own lead section — the
-summary Wikipedia's editors wrote themselves.
+Nothing is precomputed. Type `Kākāpō` and everything — summaries, scores, six charts — is calculated fresh in about 60 ms for a 4,300-word article.
 
-**[→ Try it](https://akshayaa-403.github.io/Wikipedia-Summarizer/)**
+**[→ Try it for any article](https://akshayaa-403.github.io/Wikipedia-Summarizer/)**
 
-Nothing is precomputed. Type `Kākāpō` and every summary, score, and chart is
-calculated from scratch for that article.
+## How it works
 
-## The methods
+![Pipeline: article, lead/body split, shared TF-IDF, four selectors, ROUGE](docs/images/pipeline.svg)
 
-Four families, chosen to fail differently:
+One preprocessing pass feeds all four algorithms, so the only thing that varies is the selection strategy. When TextRank beats LSA it isn't because one got better tokenization.
 
-| Method | Idea | Family |
-|---|---|---|
-| **TextRank** | PageRank over a sentence-similarity graph | graph centrality |
-| **LSA** | Truncated SVD; one sentence per latent topic | topic model |
-| **Luhn** (1958) | Densest window of high-frequency terms | frequency |
-| **MMR** | Relevance − λ·redundancy against what it already picked | diversity |
+## The four algorithms
 
-The first three score every sentence independently, so all three can return
-four sentences that say the same thing. MMR is the only one that looks at what
-it has already selected.
+I picked these because they fail in completely different ways:
 
-All four share one preprocessing pass and one word budget, so differences come
-from the selection strategy alone — not from tokenizing or length.
+| Algorithm             | What it does                                                        | Family          |
+| --------------------- | ------------------------------------------------------------------- | --------------- |
+| **TextRank**    | Runs PageRank on a graph of sentence similarities                   | Graph-based     |
+| **LSA**         | Finds latent topics via SVD, picks one sentence per topic           | Topic modeling  |
+| **Luhn** (1958) | Finds the densest window of frequent terms                          | Frequency-based |
+| **MMR**         | Balances relevance against redundancy with what it's already picked | Diversity-aware |
 
-## How they do
+MMR is the odd one out, and it shows: it's the only algorithm that looks backward at what it already selected. The first three score each sentence independently, so all three can return four sentences that say the same thing. MMR subtracts a redundancy penalty at every step — which is why it wins two of the three articles below.
 
-ROUGE-1 against the article's lead, and against the **human ceiling**: that same
-lead trimmed to the word budget the methods get.
+## How well do they work?
 
-| Article | Human ceiling | TextRank | LSA | Luhn | MMR |
-|---|--:|--:|--:|--:|--:|
-| Penguin | 0.709 | **0.395** | 0.319 | 0.263 | 0.318 |
-| Black hole | 0.474 | **0.323** | 0.272 | 0.194 | 0.310 |
-| Roman Empire | 0.380 | 0.220 | **0.246** | 0.209 | 0.223 |
+ROUGE-1 F-measure against the article's lead. But there's a catch: scoring against the full lead would return 1.000 for a straight copy, so I trim the lead to the **same word budget** the algorithms get. That gives a **human ceiling** — what a person achieves writing to the same brief.
 
-No method wins everywhere — TextRank leads on two, LSA on the third. That
-instability is the point of the rank chart.
+![ROUGE-1 by algorithm across three articles, with the human ceiling as a dashed rule](docs/images/rank-chart.svg)
 
-**Scoring the lead against itself would return 1.000 every time**, which teaches
-nothing. Trimming it to the same budget turns it into a real upper bound: what a
-human achieves writing to this brief. The best method reaches 56–68% of it.
+| Article      | Human ceiling | TextRank        | LSA   | Luhn  | MMR             |
+| ------------ | ------------- | --------------- | ----- | ----- | --------------- |
+| Penguin      | 0.709         | 0.393           | 0.305 | 0.263 | **0.400** |
+| Black hole   | 0.474         | 0.314           | 0.269 | 0.204 | **0.317** |
+| Roman Empire | 0.380         | **0.255** | 0.222 | 0.181 | 0.188           |
 
-## Reading the charts
+**No single algorithm wins.** MMR takes two, TextRank takes one — and MMR goes from best to worst between Penguin and Roman Empire. That instability is the point; it's why you need the full picture rather than one headline number.
 
-Six charts, all recomputed per article:
+The best algorithm reaches 56–67% of the human ceiling. That's the gap between "competent extractive summarization" and actually writing a summary.
 
-1. **ROUGE F-measure** — three metrics, four methods, human ceiling as a dashed rule
-2. **Rank stability** — plotted by rank, since scores cluster within a thousandth
-3. **Coverage vs self-repetition** — the chart that justifies MMR existing
-4. **Sentence overlap** — Jaccard between every pair; a dark row means redundancy
-5. **Key terms captured** — top-20 TF-IDF terms, a signal independent of ROUGE
-6. **Positional density** — kernel density of where each method looks
+## The six charts
 
-Chart 6 is the most diagnostic: a curve humped at the left means the method is
-lead-biased, effectively paraphrasing the introduction rather than reading the
-article.
+Every search recomputes all six. Each answers something ROUGE alone can't.
 
-## Run it
+|                                                                                                                                                                                          |                                                                                                                                                                                         |
+| :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ![ROUGE F-measure](docs/images/chart-rouge.png)**ROUGE F-measure** — three metrics with the human ceiling as a dashed rule. The headline numbers.                                 | ![Rank stability](docs/images/chart-rank.png)**Rank stability** — plotted by rank, not score. Values cluster within a thousandth, so ordering is the readable question.          |
+| ![Coverage vs self-repetition](docs/images/chart-quadrant.png)**Coverage vs self-repetition** — the chart that justifies MMR's existence. It should sit alone in the lower right. | ![Sentence overlap](docs/images/chart-overlap.png)**Sentence overlap** — Jaccard between every pair. A dark off-diagonal cell means two methods are agreeing.                    |
+| ![Key terms captured](docs/images/chart-terms.png)**Key terms captured** — how many of the article's top-20 TF-IDF terms each summary contains. Independent of ROUGE.             | ![Positional density](docs/images/chart-density.png)**Positional density** — where each method looks. A curve humped at the left is lead-biased. The most diagnostic chart here. |
 
-No build step, no dependencies, no backend.
+## Quick start
+
+No build step, no bundler, no runtime dependencies.
 
 ```bash
 git clone https://github.com/akshayaa-403/Wikipedia-Summarizer
@@ -88,50 +71,44 @@ cd Wikipedia-Summarizer
 python3 -m http.server 8765 --directory docs
 ```
 
-Open <http://127.0.0.1:8765>.
+Then open [http://127.0.0.1:8765](http://127.0.0.1:8765).
 
-## Tests
+## Running the tests
+
+The suite drives the real page in Chromium, so it needs the site being served:
 
 ```bash
 npm install
 npx playwright install chromium
+
+python3 -m http.server 8765 --directory docs &   # in another shell
 npm test
 ```
 
-27 checks driving the real page in Chromium: the four summaries render and are
-distinct, ROUGE recomputes for a new article, every chart draws, labels don't
-overlap, both themes hold, and no console errors. It fetches from the live
-Wikipedia API, so it exercises the same path a visitor does.
+33 checks: the four summaries render and stay distinct, ROUGE recomputes for a new article, every chart draws, labels don't collide, both themes hold, and summaries open with a self-contained sentence. It fetches from the live Wikipedia API, so it exercises the same path a visitor does.
 
-## Layout
+## Project structure
 
 ```
 docs/
-  index.html
-  css/style.css
-  js/
-    wiki.js          MediaWiki client, lead/body split, ROUGE
-    summarizers.js   the four algorithms + shared TF-IDF preprocessing
-    charts.js        hand-rolled SVG; no charting library
-    app.js           page controller
-tests/e2e/           Playwright suite
+├── index.html
+├── css/style.css
+├── images/              # screenshots and the charts above
+└── js/
+    ├── wiki.js          # MediaWiki client, lead/body split, ROUGE
+    ├── summarizers.js   # Four algorithms + shared TF-IDF preprocessing
+    ├── charts.js        # Hand-rolled SVG (no charting library)
+    └── app.js           # Page controller
+tests/e2e/
+└── browser_check.mjs    # Playwright suite
 ```
 
-## Notes
+## Design decisions
 
-**Why extractive only.** Abstractive models (BART and friends) need a 1.6 GB
-checkpoint and a server. This page is static files with nothing behind it, so
-every method has to run in the visitor's browser. That constraint is also why
-the charts can be live for *any* article rather than precomputed for a fixed set.
-
-**ROUGE measures overlap, not correctness.** It rewards reusing the reference's
-vocabulary and cannot tell whether a summary is true. That is why the page also
-reports key-term coverage, self-repetition, and positional spread — none of
-which ROUGE sees.
-
-**Colours are validated, not chosen by eye.** Both palettes clear a
-colourblind-separation check against the exact surfaces they render on.
+- **Why extractive only?** Abstractive models need a 1.6 GB checkpoint and a server; this page is static files. That constraint is also a feature — it's why the charts are live for *any* article instead of precomputed for a fixed set.
+- **ROUGE measures overlap, not correctness.** A summary that reuses the reference's vocabulary scores well even if it's wrong. That's why the page also reports key-term coverage, self-repetition and positional spread.
+- **The colours are validated, not chosen.** Both palettes pass a colourblind-separation check against the exact surfaces they render on.
 
 ## License
 
-[MIT](LICENSE). Article text from Wikipedia, [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
+MIT. Article text comes from Wikipedia and is [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
