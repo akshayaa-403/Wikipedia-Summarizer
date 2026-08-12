@@ -56,7 +56,7 @@ const tokenize = (sentence) =>
  * Shared preprocessing: sentences, their tokens, IDF weights, and L2-normalised
  * TF-IDF vectors. Computed once per article and handed to every method.
  */
-export function analyse(text) {
+function analyse(text) {
   const sentences = sentenceSplit(text);
   const tokens = sentences.map(tokenize);
 
@@ -93,6 +93,20 @@ export function analyse(text) {
   return { sentences, tokens, idf, termFreq, vectors };
 }
 
+/* Word-overlap similarity on the raw sentences (Jaccard over lowercased word
+ * types). TF-IDF cosine can rate two sentences as different because their
+ * *weighted* terms differ, while a reader sees near-identical prose -- on India
+ * that let MMR and TextRank return summaries sharing their opening and closing
+ * sentences. This second, blunter measure catches that case. */
+function surfaceSimilarity(a, b) {
+  const A = new Set(a.toLowerCase().match(/[a-z]+/g) ?? []);
+  const B = new Set(b.toLowerCase().match(/[a-z]+/g) ?? []);
+  if (!A.size || !B.size) return 0;
+  let inter = 0;
+  for (const w of A) if (B.has(w)) inter++;
+  return inter / (A.size + B.size - inter);
+}
+
 /* Cosine similarity of two already-normalised sparse vectors. */
 function cosine(a, b) {
   const [small, large] = a.size < b.size ? [a, b] : [b, a];
@@ -104,18 +118,62 @@ function cosine(a, b) {
   return dot;
 }
 
+/* Openers that point at something the summary never introduced. A sentence
+ * beginning "The sultanate was to control much of North India" is fine in the
+ * article, where the sultanate was named two paragraphs earlier, and useless as
+ * the first line of a standalone summary. */
+const DANGLING_OPENER =
+  /^(the|this|these|those|that|it|its|they|their|them|he|she|his|her|such|both|another|other|later|meanwhile|however|therefore|thus|hence|then|also|but|and|so|there)\b/i;
+
+/** A sentence that can stand on its own as an opening line. */
+function selfContained(sentence) {
+  return !DANGLING_OPENER.test(sentence.trim());
+}
+
 /* Take top-ranked sentences up to a word budget, then restore document order so
  * the result reads as prose rather than as a ranked list. Shared by all four so
- * the summaries are length-comparable and ROUGE measures method, not verbosity. */
+ * the summaries are length-comparable and ROUGE measures method, not verbosity.
+ *
+ * One extra constraint: whichever selected sentence ends up FIRST must stand on
+ * its own. Ranking alone opened the India summary with "The sultanate was to
+ * control much of North India" -- correct in the article, where the sultanate
+ * was named earlier, meaningless as a summary's first line. 11 of 20 summaries
+ * opened that way.
+ *
+ * Note this has to be enforced against document order, not selection order:
+ * picking a self-contained sentence first and then re-sorting simply puts the
+ * lowest-index sentence back at the front. So any dangling sentence that would
+ * land in the opening slot is dropped, and the next-ranked candidate takes its
+ * place. Later positions keep dangling sentences happily -- by then the
+ * referent has been introduced. */
 function assemble(sentences, order, targetWords) {
   const picked = [];
   let words = 0;
+
   for (const i of order) {
     const len = sentences[i].split(/\s+/).length;
     if (picked.length && words + len > targetWords) break;
+
+    // Would this sentence become the opening line? If so it must be
+    // self-contained, otherwise skip it and try the next-ranked one.
+    const wouldLead = picked.every((j) => i < j);
+    if (wouldLead && !selfContained(sentences[i])) continue;
+
     picked.push(i);
     words += len;
   }
+
+  // Nothing self-contained anywhere in range: fall back to plain ranking rather
+  // than return an empty summary.
+  if (!picked.length) {
+    for (const i of order) {
+      const len = sentences[i].split(/\s+/).length;
+      if (picked.length && words + len > targetWords) break;
+      picked.push(i);
+      words += len;
+    }
+  }
+
   picked.sort((a, b) => a - b);
   return {
     indices: picked,
@@ -130,7 +188,7 @@ function assemble(sentences, order, targetWords) {
  * similar to many other high-ranking sentences, i.e. when it restates the
  * article's recurring material.
  */
-export function textrank(a, { targetWords = 150, damping = 0.85, iters = 60 } = {}) {
+function textrank(a, { targetWords = 150, damping = 0.85, iters = 60 } = {}) {
   const n = a.sentences.length;
   if (!n) return { indices: [], text: '' };
 
@@ -189,7 +247,7 @@ export function textrank(a, { targetWords = 150, damping = 0.85, iters = 60 } = 
  * the article's distinct *topics* -- so it decorrelates and the four methods
  * now span four families: graph, topic model, frequency, diversity.
  */
-export function lsa(a, { targetWords = 150, topics = 4, iters = 60 } = {}) {
+function lsa(a, { targetWords = 150, topics = 4, iters = 60 } = {}) {
   const n = a.sentences.length;
   if (!n) return { indices: [], text: '' };
 
@@ -298,7 +356,7 @@ export function lsa(a, { targetWords = 150, topics = 4, iters = 60 } = {}) {
  * mentions three key terms in a row beats one that scatters four across a
  * clause, which is a different notion of importance from either vector method.
  */
-export function luhn(a, { targetWords = 150, topTerms = 0.12 } = {}) {
+function luhn(a, { targetWords = 150, topTerms = 0.12 } = {}) {
   if (!a.sentences.length) return { indices: [], text: '' };
 
   const ranked = [...a.termFreq.entries()].sort((x, y) => y[1] - x[1]);
@@ -349,7 +407,7 @@ export function luhn(a, { targetWords = 150, topTerms = 0.12 } = {}) {
  * summaries on the page under different names. At 0.5 the overlap drops to 0.33
  * and the redundancy penalty actually changes what gets picked.
  */
-export function mmr(a, { targetWords = 150, lambda = 0.5 } = {}) {
+function mmr(a, { targetWords = 150, lambda = 0.5 } = {}) {
   if (!a.sentences.length) return { indices: [], text: '' };
 
   const c = new Map();
@@ -384,14 +442,29 @@ export function mmr(a, { targetWords = 150, lambda = 0.5 } = {}) {
     words += len;
     remaining.delete(bestIdx);
 
-    // Update each candidate's similarity to the nearest already-chosen sentence.
+    // Update each candidate's similarity to the nearest already-chosen
+    // sentence, taking the harsher of the two measures: TF-IDF cosine catches
+    // topical repetition, surface overlap catches near-identical wording that
+    // the weighted vectors miss.
     for (const i of remaining) {
       maxSimToChosen[i] = Math.max(
-        maxSimToChosen[i], cosine(a.vectors[i], a.vectors[bestIdx]));
+        maxSimToChosen[i],
+        cosine(a.vectors[i], a.vectors[bestIdx]),
+        surfaceSimilarity(a.sentences[i], a.sentences[bestIdx]),
+      );
     }
   }
 
-  const indices = [...chosen].sort((x, y) => x - y);
+  // MMR runs its own greedy loop rather than assemble(), so the
+  // self-contained-opener rule has to be applied here too: drop leading
+  // sentences that would open the summary on a bare "The sultanate ..." until
+  // one stands on its own. Only ever trims from the front, and never empties
+  // the selection.
+  let indices = [...chosen].sort((x, y) => x - y);
+  while (indices.length > 1 && !selfContained(a.sentences[indices[0]])) {
+    indices = indices.slice(1);
+  }
+
   return {
     indices,
     text: indices.map((i) => a.sentences[i]).join(' '),

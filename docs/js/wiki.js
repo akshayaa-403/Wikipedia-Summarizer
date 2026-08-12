@@ -75,11 +75,16 @@ function splitArticle(text, title, url) {
   const lead = (first ? text.slice(0, first.index) : text).trim();
   const rest = first ? text.slice(first.index) : '';
 
+  // Keep each prose section but DROP its heading. Concatenating the heading in
+  // fuses it onto the first sentence once whitespace collapses -- "Etymology
+  // and definition The origin of the word jazz has been..." -- which corrupts
+  // the sentence split, the TF-IDF vectors, and the summary text itself. Jazz
+  // alone leaked 60 such fragments.
   const parts = rest.split(/^={2,}\s*(.+?)\s*={2,}$/gm);
   let body = '';
   for (let i = 1; i < parts.length; i += 2) {
     if (BOILERPLATE.has(parts[i].trim().toLowerCase())) continue;
-    body += `${parts[i]}\n${parts[i + 1] ?? ''}\n\n`;
+    body += `${parts[i + 1] ?? ''}\n\n`;
   }
 
   const clean = (s) => s.replace(/={2,}.*?={2,}/g, ' ')

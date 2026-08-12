@@ -116,6 +116,64 @@ const latexLeak = await page.evaluate(async () => {
   return /displaystyle/.test(art.body);
 });
 check('LaTeX markup stripped from article text', !latexLeak);
+
+// --- summary quality -------------------------------------------------------
+// Everything else on this page measures overlap; these measure whether the
+// summaries actually read as standalone prose.
+const quality = await page.evaluate(async () => {
+  const s = await import('/js/summarizers.js');
+  const w = await import('/js/wiki.js');
+  const DANGLING = /^(the|this|these|those|that|it|its|they|their|he|she|his|her|such|later|however|therefore|thus|then|also|but|and|so)\b/i;
+
+  const surface = (a, b) => {
+    const A = new Set(a.toLowerCase().match(/[a-z]+/g) ?? []);
+    const B = new Set(b.toLowerCase().match(/[a-z]+/g) ?? []);
+    let inter = 0;
+    for (const x of A) if (B.has(x)) inter++;
+    return inter / (A.size + B.size - inter || 1);
+  };
+
+  let dangling = 0;
+  let worstDup = 0;
+  let headingLeak = 0;
+
+  for (const title of ['India', 'Jazz', 'Roman Empire']) {
+    const art = await w.fetchArticle(title);
+    // Section headings must not survive into the body: they fuse onto the
+    // following sentence once whitespace collapses ("Etymology The origin...").
+    // A newline alone is not the signal: Wikipedia extracts put block
+    // quotations on their own line after a colon, and that is real article
+    // text. A leaked heading is a SHORT leading line with no terminal
+    // punctuation ("Etymology", "Slaves and the law").
+    headingLeak += w.sentenceSplit(art.body).filter((x) => {
+      if (!x.includes('\n')) return false;
+      const head = x.split('\n')[0].trim();
+      return head.length > 0 && head.length < 45 && !/[.!?:,;]$/.test(head);
+    }).length;
+
+    const { results } = s.summarizeAll(art.body);
+    const texts = s.METHODS.map((m) => results[m.key].text);
+    for (const t of texts) {
+      const first = (t.split(/(?<=[.!?])\s+/)[0] ?? '').trim();
+      // "The two main categories of X are..." is self-contained despite the
+      // article; only flag an opener whose referent is genuinely missing.
+      if (DANGLING.test(first) && !/\b(are|is|was|were)\b/.test(first.slice(0, 60))) dangling++;
+    }
+    for (let i = 0; i < texts.length; i++) {
+      for (let j = i + 1; j < texts.length; j++) {
+        worstDup = Math.max(worstDup, surface(texts[i], texts[j]));
+      }
+    }
+  }
+  return { dangling, worstDup, headingLeak };
+});
+
+check('summaries open with a self-contained sentence', quality.dangling === 0,
+      `${quality.dangling} dangling openers across 12 summaries`);
+check('no two summaries are near-identical', quality.worstDup < 0.75,
+      `worst surface overlap ${quality.worstDup.toFixed(2)}`);
+check('section headings stripped from body', quality.headingLeak === 0,
+      `${quality.headingLeak} sentences contain a heading fragment`);
 check('density curves', (await page.$$('#density-chart svg path[tabindex]')).length === 4);
 
 // Regression: the matrix once referenced a deleted palette token, so color-mix

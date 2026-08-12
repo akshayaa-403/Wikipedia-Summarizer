@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 260" width="860" height="260"
+     font-family="system-ui,-apple-system,Segoe UI,sans-serif"
+     role="img" aria-label="Pipeline: article fetched, split into sentences, weighted with TF-IDF, then four selectors each pick sentences, all scored with ROUGE against the article's lead">
+
+  <!-- stage 1 -->
+  <rect x="8" y="96" width="118" height="52" rx="6" fill="none" stroke="#8a8781" stroke-width="1.2"/>
+  <text x="67" y="118" text-anchor="middle" font-size="12" font-weight="600" fill="#8a8781">Article</text>
+  <text x="67" y="134" text-anchor="middle" font-size="10" fill="#8a8781">MediaWiki API</text>
+
+  <path d="M126 122 L152 122" stroke="#8a8781" stroke-width="1.2"/>
+  <path d="M152 122 l-6 -3.5 v7 z" fill="#8a8781"/>
+
+  <!-- stage 2 -->
+  <rect x="154" y="96" width="128" height="52" rx="6" fill="none" stroke="#8a8781" stroke-width="1.2"/>
+  <text x="218" y="115" text-anchor="middle" font-size="12" font-weight="600" fill="#8a8781">Lead / body split</text>
+  <text x="218" y="131" text-anchor="middle" font-size="10" fill="#8a8781">lead becomes the</text>
+  <text x="218" y="143" text-anchor="middle" font-size="10" fill="#8a8781">reference</text>
+
+  <path d="M282 122 L308 122" stroke="#8a8781" stroke-width="1.2"/>
+  <path d="M308 122 l-6 -3.5 v7 z" fill="#8a8781"/>
+
+  <!-- stage 3 -->
+  <rect x="310" y="96" width="128" height="52" rx="6" fill="none" stroke="#8a8781" stroke-width="1.2"/>
+  <text x="374" y="115" text-anchor="middle" font-size="12" font-weight="600" fill="#8a8781">Shared TF-IDF</text>
+  <text x="374" y="131" text-anchor="middle" font-size="10" fill="#8a8781">sentences, IDF,</text>
+  <text x="374" y="143" text-anchor="middle" font-size="10" fill="#8a8781">normalised vectors</text>
+
+  <!-- fan out to four selectors -->
+  <path d="M438 122 C 470 122, 470 34, 500 34" fill="none" stroke="#c4402c" stroke-width="1.4"/>
+  <path d="M438 122 C 470 122, 470 93, 500 93" fill="none" stroke="#2a72c9" stroke-width="1.4"/>
+  <path d="M438 122 C 470 122, 470 152, 500 152" fill="none" stroke="#c98500" stroke-width="1.4"/>
+  <path d="M438 122 C 470 122, 470 211, 500 211" fill="none" stroke="#0f9668" stroke-width="1.4"/>
+
+  <rect x="496" y="18" width="166" height="32" rx="5" fill="none" stroke="#c4402c" stroke-width="1.3"/>
+  <text x="506" y="38" font-size="11.5" font-weight="600" fill="#c4402c">TextRank</text>
+  <text x="578" y="38" font-size="9.5" fill="#8a8781">graph centrality</text>
+
+  <rect x="496" y="77" width="166" height="32" rx="5" fill="none" stroke="#2a72c9" stroke-width="1.3"/>
+  <text x="506" y="97" font-size="11.5" font-weight="600" fill="#2a72c9">LSA</text>
+  <text x="578" y="97" font-size="9.5" fill="#8a8781">latent topics</text>
+
+  <rect x="496" y="136" width="166" height="32" rx="5" fill="none" stroke="#c98500" stroke-width="1.3"/>
+  <text x="506" y="156" font-size="11.5" font-weight="600" fill="#c98500">Luhn</text>
+  <text x="578" y="156" font-size="9.5" fill="#8a8781">term density</text>
+
+  <rect x="496" y="195" width="166" height="32" rx="5" fill="none" stroke="#0f9668" stroke-width="1.3"/>
+  <text x="506" y="215" font-size="11.5" font-weight="600" fill="#0f9668">MMR</text>
+  <text x="578" y="215" font-size="9.5" fill="#8a8781">minus redundancy</text>
+
+  <!-- fan back in -->
+  <path d="M662 34 C 682 34, 682 122, 706 122" fill="none" stroke="#c4402c" stroke-width="1.4"/>
+  <path d="M662 93 C 682 93, 682 122, 706 122" fill="none" stroke="#2a72c9" stroke-width="1.4"/>
+  <path d="M662 152 C 682 152, 682 122, 706 122" fill="none" stroke="#c98500" stroke-width="1.4"/>
+  <path d="M662 211 C 682 211, 682 122, 706 122" fill="none" stroke="#0f9668" stroke-width="1.4"/>
+
+  <rect x="708" y="96" width="144" height="52" rx="6" fill="none" stroke="#111111" stroke-width="1.4"/>
+  <text x="780" y="115" text-anchor="middle" font-size="12" font-weight="600" fill="#111111">ROUGE</text>
+  <text x="780" y="131" text-anchor="middle" font-size="10" fill="#8a8781">against the lead,</text>
+  <text x="780" y="143" text-anchor="middle" font-size="10" fill="#8a8781">plus the human ceiling</text>
+
+  <text x="374" y="176" text-anchor="middle" font-size="9.5" fill="#8a8781">one pass, shared by all four</text>
+  <text x="374" y="189" text-anchor="middle" font-size="9.5" fill="#8a8781">so only the selection strategy differs</text>
+</svg>
