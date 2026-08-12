@@ -4,8 +4,6 @@ Four summarization algorithms. One article. Scored against the people who wrote 
 
 [![Live demo](https://img.shields.io/badge/demo-online-22c55e?style=flat-square)](https://akshayaa-403.github.io/Wikipedia-Summarizer/)
 [![Tests](https://img.shields.io/github/actions/workflow/status/akshayaa-403/Wikipedia-Summarizer/tests.yml?style=flat-square&label=tests&color=22c55e)](https://github.com/akshayaa-403/Wikipedia-Summarizer/actions/workflows/tests.yml)
-[![Dependencies](https://img.shields.io/badge/dependencies-0-8b5cf6?style=flat-square)]()
-[![Backend](https://img.shields.io/badge/backend-none-3b82f6?style=flat-square)]()
 [![License](https://img.shields.io/github/license/akshayaa-403/Wikipedia-Summarizer?style=flat-square&color=8b5cf6)](LICENSE)
 
 ## Overview
