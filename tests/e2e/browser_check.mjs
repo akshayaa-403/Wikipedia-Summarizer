@@ -92,6 +92,30 @@ check('quadrant labels do not overlap', !overlap, `${quadLabels.length} labels`)
 check('overlap matrix off-diagonal cells',
       (await page.$$('#overlap-chart svg rect[tabindex="0"]')).length === 12);
 check('key-term coverage bars', (await page.$$('#terms-chart svg rect[tabindex]')).length === 4);
+
+// Regression: ROUGE and key-term extraction once used two different stemmers,
+// and the shared one mapped 'holes' to 'hol' while 'hole' stayed whole -- so
+// both claimed a slot in the top-20 and the list covered 19 concepts, not 20.
+const stemCheck = await page.evaluate(async () => {
+  const w = await import('/js/wiki.js');
+  const merged = [['hole', 'holes'], ['galaxy', 'galaxies'], ['box', 'boxes'], ['run', 'running']];
+  const distinct = [['hole', 'hold'], ['star', 'start']];
+  return {
+    merged: merged.every(([a, b]) => w.stem(a) === w.stem(b)),
+    separate: distinct.every(([a, b]) => w.stem(a) !== w.stem(b)),
+  };
+});
+check('stemmer merges inflections', stemCheck.merged);
+check('stemmer keeps distinct words apart', stemCheck.separate);
+
+// Maths-heavy articles embed formulae as "{\displaystyle ...}" in the
+// plaintext extract; unstripped it leaks into summaries and ranks as a term.
+const latexLeak = await page.evaluate(async () => {
+  const w = await import('/js/wiki.js');
+  const art = await w.fetchArticle('Black hole');
+  return /displaystyle/.test(art.body);
+});
+check('LaTeX markup stripped from article text', !latexLeak);
 check('density curves', (await page.$$('#density-chart svg path[tabindex]')).length === 4);
 
 // Regression: the matrix once referenced a deleted palette token, so color-mix

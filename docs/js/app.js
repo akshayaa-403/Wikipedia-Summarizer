@@ -230,7 +230,6 @@ function renderMetrics(rows, ceiling, analysis, article, terms) {
       return `<b>${r.label}</b><br>${ROUGE_KEYS[gi][1]}: ${r.scores[k].toFixed(3)}` +
              `<br>${reach} of the human ceiling`;
     },
-    yLabel: 'F-measure',
   }));
 
   // --- table -------------------------------------------------------------

@@ -62,7 +62,7 @@ function tooltip() {
  * @param {(seriesKey, groupIndex) => number} spec.value
  * @param {(seriesKey, groupIndex) => string} [spec.tip]
  */
-export function groupedColumns({ groups, series, value, tip, ceiling = null, yLabel = '' }) {
+export function groupedColumns({ groups, series, value, tip, ceiling = null }) {
   const width = 860;
   const height = 320;
   const format = (v) => v.toFixed(3);
@@ -97,14 +97,12 @@ export function groupedColumns({ groups, series, value, tip, ceiling = null, yLa
     label.textContent = v.toFixed(2);
     svg.appendChild(label);
   }
-  if (yLabel) {
-    const label = el('text', {
-      x: 0, y: 0, 'font-size': 11, 'text-anchor': 'middle',
-      transform: `translate(14, ${pad.top + plotHeight / 2}) rotate(-90)`,
-    });
-    label.textContent = yLabel;
-    svg.appendChild(label);
-  }
+  const axisLabel = el('text', {
+    x: 0, y: 0, 'font-size': 11, 'text-anchor': 'middle',
+    transform: `translate(14, ${pad.top + plotHeight / 2}) rotate(-90)`,
+  });
+  axisLabel.textContent = 'F-measure';
+  svg.appendChild(axisLabel);
 
   svg.appendChild(el('line', {
     class: 'axis', x1: pad.left, x2: width - pad.right,

@@ -19,7 +19,7 @@
  * their output come from the selection strategy alone and not from preprocessing.
  */
 
-import { sentenceSplit } from './wiki.js';
+import { sentenceSplit, stem } from './wiki.js';
 
 /* Words carrying no topical signal. Left in, they dominate every similarity
  * computation and the rankings degenerate toward "longest sentence wins". */
@@ -44,7 +44,9 @@ important possible able likely near far away close open close begin began start 
 end ended continue continued remain remained become became appear appeared seem seemed
 whether although though despite unless upon toward towards across along behind beyond
 order orders ordered live lives lived living give gives goes going gone done does
-per via etc via approximately roughly nearly almost about around over under between`.split(/\s+/));
+per via etc approximately roughly nearly almost about around over under between
+will shall must might could would should can may need needs let lets thus hence therefore
+also just only even both each either neither every any some all none itself oneself`.split(/\s+/));
 
 const tokenize = (sentence) =>
   sentence.toLowerCase().match(/[a-z][a-z'-]+/g)?.filter(
@@ -486,12 +488,13 @@ export function keyTerms(a, count = 20) {
 
   // Collapse inflections before taking the top N. Without this, 'penguin' and
   // 'penguins' both claim a slot and the list silently covers fewer distinct
-  // concepts than it claims to.
+  // concepts than it claims to. Uses the same stemmer as ROUGE so both features
+  // agree on what counts as one word.
   const byStem = new Map();
   for (const [term, w] of weight) {
-    const stem = term.replace(/(?:ies|es|s)$/, (m) => (m === 'ies' ? 'y' : ''));
-    const prev = byStem.get(stem);
-    if (!prev || w > prev.weight) byStem.set(stem, { term, weight: w });
+    const key = stem(term);
+    const prev = byStem.get(key);
+    if (!prev || w > prev.weight) byStem.set(key, { term, weight: w });
   }
 
   return [...byStem.values()]

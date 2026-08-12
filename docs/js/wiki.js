@@ -83,6 +83,12 @@ function splitArticle(text, title, url) {
   }
 
   const clean = (s) => s.replace(/={2,}.*?={2,}/g, ' ')
+                        // Plaintext extracts embed every formula as
+                        // "{\displaystyle ...}". Left in, the markup leaks into
+                        // summaries and 'displaystyle' ranks as a key term on
+                        // any maths-heavy article.
+                        .replace(/\{\\displaystyle[^}]*\}/g, ' ')
+                        .replace(/\{\\[a-z]+[^}]*\}/g, ' ')
                         .replace(/\n{2,}/g, '\n\n')
                         .replace(/[ \t]{2,}/g, ' ')
                         .trim();
@@ -120,10 +126,22 @@ export function sentenceSplit(text) {
 
 /* ------------------------------------------------------------------ ROUGE */
 
-const stem = (word) => word
+/* Light Porter approximation. Exported because key-term extraction needs the
+ * same notion of "same word" that ROUGE uses -- two different stemmers would
+ * have the two features disagree about whether 'penguin' and 'penguins' match.
+ *
+ * 'es' only strips after a sibilant ('boxes' -> 'box'), never blindly: a bare
+ * 'es' rule turns 'holes' into 'hol' while 'hole' stays whole, so the pair
+ * never matches and both can occupy a slot in the key-term list. 'ies' -> 'y'
+ * for the same reason ('galaxies' / 'galaxy'). The double-letter collapse is
+ * restricted to consonants that actually double in English inflection. */
+export const stem = (word) => word
   .replace(/(ational|tional|ization|iveness|fulness|ousness)$/, '')
-  .replace(/(ing|edly|ed|ly|es|s)$/, '')
-  .replace(/(.)\1$/, '$1');
+  .replace(/ies$/, 'y')
+  .replace(/([sxz]|ch|sh)es$/, '$1')
+  .replace(/(ing|edly|ed|ly)$/, '')
+  .replace(/([bdfgmnprt])\1$/, '$1')
+  .replace(/s$/, '');
 
 const rougeTokens = (text) =>
   (text.toLowerCase().match(/[a-z0-9]+/g) ?? []).map(stem);
